@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portail IA – Doria</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#16191f;--muted:#5d6675;--line:#e3e6eb;--accent:#2f5bea;
+        --ok:#1f8a4c;--warn:#b7791f;--bad:#c53030;--info:#5a67d8}
+  @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--ink:#e8ebf0;--muted:#98a1b0;--line:#272b35;--accent:#7b9bff}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{max-width:1200px;margin:0 auto;padding:32px 16px 8px}
+  h1{margin:0;font-size:26px}
+  .sub{color:var(--muted);margin:4px 0 16px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  input{flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit}
+  .chip{padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);cursor:pointer;font:inherit;font-size:13px}
+  .chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  main{max-width:1200px;margin:0 auto;padding:8px 16px 48px}
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:28px 0 10px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+  .card.dim{opacity:.6}
+  .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+  .name{font-weight:600;font-size:16px}
+  .tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;white-space:nowrap;border:1px solid currentColor}
+  .s-actif{color:var(--ok)} .s-reparer{color:var(--bad)} .s-verifier{color:var(--warn)} .s-arreter{color:var(--muted)}
+  .tech{font-size:12px;color:var(--muted)}
+  .sum{margin:0}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:auto;padding-top:6px;gap:8px}
+  .live{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--line)}
+  .dot.up{background:var(--ok)} .dot.down{background:var(--bad)}
+  a.open{background:var(--accent);color:#fff;text-decoration:none;padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600}
+  details{font-size:12px;color:var(--muted)} summary{cursor:pointer}
+  code{font-size:12px}
+  .admin{display:flex;flex-wrap:wrap;gap:8px}
+  .admin a{color:var(--ink);text-decoration:none;border:1px solid var(--line);background:var(--card);padding:6px 12px;border-radius:8px;font-size:13px}
+  .stats{display:flex;gap:16px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:12px}
+  .stats b{color:var(--ink)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Portail IA</h1>
+  <p class="sub">Les solutions hébergées sur ns3229033, leur rôle et leur état.</p>
+  <div class="bar">
+    <input id="q" type="search" placeholder="Rechercher une solution, une techno, un conteneur…">
+  </div>
+  <div class="bar" id="filters" style="margin-top:10px"></div>
+  <div class="stats" id="stats"></div>
+</header>
+<main id="main"></main>
+
+<script src="services.js"></script>
+<script>
+const LABEL = {actif:"Actif", reparer:"À réparer", verifier:"À vérifier", arreter:"À arrêter"};
+const host = location.hostname || "57.128.75.61";
+const url = s => s.port ? `${location.protocol === "https:" ? "http:" : location.protocol}//${host}:${s.port}${s.path||"/"}` : null;
+let filter = "tous";
+
+const filters = document.getElementById("filters");
+[["tous","Tous"],["actif","Actifs"],["reparer","À réparer"],["verifier","À vérifier"],["arreter","À arrêter"]].forEach(([k,l])=>{
+  const b=document.createElement("button");b.className="chip"+(k===filter?" on":"");b.textContent=l;
+  b.onclick=()=>{filter=k;[...filters.children].forEach(c=>c.classList.remove("on"));b.classList.add("on");render();};
+  filters.appendChild(b);
+});
+document.getElementById("q").addEventListener("input",render);
+
+const counts = SERVICES.reduce((a,s)=>(a[s.status]=(a[s.status]||0)+1,a),{});
+const nbc = SERVICES.reduce((n,s)=>n+s.containers.length,0);
+document.getElementById("stats").innerHTML =
+  `<span><b>${SERVICES.length}</b> solutions</span><span><b>${nbc}</b> conteneurs</span>`+
+  Object.entries(LABEL).map(([k,l])=>`<span><b>${counts[k]||0}</b> ${l.toLowerCase()}</span>`).join("");
+
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+
+function render(){
+  const q=document.getElementById("q").value.toLowerCase().trim();
+  const list=SERVICES.filter(s=>(filter==="tous"||s.status===filter) &&
+    (!q || [s.name,s.summary,s.tech,s.category,...s.containers].join(" ").toLowerCase().includes(q)));
+  const cats=[...new Set(list.map(s=>s.category))];
+  const main=document.getElementById("main");
+  main.innerHTML = cats.map(c=>`<h2>${esc(c)}</h2><div class="grid">`+
+    list.filter(s=>s.category===c).map((s,i)=>{
+      const u=url(s), id="p"+SERVICES.indexOf(s);
+      return `<article class="card ${s.status==="arreter"?"dim":""}">
+        <div class="top"><div class="name">${esc(s.name)}</div><span class="tag s-${s.status}">${LABEL[s.status]}</span></div>
+        <div class="tech">${esc(s.tech)}${s.port?` · port ${s.port}`:""}</div>
+        <p class="sum">${esc(s.summary)}</p>
+        <details><summary>${s.containers.length} conteneur(s)</summary><code>${s.containers.map(esc).join("<br>")}</code></details>
+        <div class="foot">
+          <span class="live"><span class="dot" id="${id}"></span><span id="${id}t">${u?"test…":"non exposé"}</span></span>
+          ${u?`<a class="open" href="${u}" target="_blank" rel="noopener">Ouvrir</a>`:""}
+        </div></article>`;
+    }).join("")+`</div>`).join("") +
+    (filter==="tous"&&!q ? `<h2>Administration</h2><div class="admin">${ADMIN_TOOLS.map(a=>`<a href="${url(a)}" target="_blank" rel="noopener">${esc(a.name)} · ${a.port}</a>`).join("")}</div>`:"");
+  list.forEach(s=>{ if(s.port) probe(s,"p"+SERVICES.indexOf(s)); });
+}
+
+// Test de disponibilité : une requête no-cors aboutit si le port répond, échoue sinon.
+const cache={};
+function probe(s,id){
+  const set=(ok)=>{const d=document.getElementById(id),t=document.getElementById(id+"t");if(!d)return;
+    d.className="dot "+(ok?"up":"down");t.textContent=ok?"en ligne":"injoignable";};
+  if(s.port in cache){cache[s.port].then(set);return;}
+  const ctl=new AbortController();setTimeout(()=>ctl.abort(),5000);
+  cache[s.port]=fetch(url(s),{mode:"no-cors",cache:"no-store",signal:ctl.signal}).then(()=>true,()=>false);
+  cache[s.port].then(set);
+}
+render();
+</script>
+</body>
+</html>

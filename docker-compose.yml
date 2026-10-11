@@ -1,0 +1,12 @@
+services:
+  portail:
+    image: nginx:1.27-alpine
+    container_name: portail-ia
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./site:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Décommenter pour protéger le portail par mot de passe (voir README)
+      # - ./.htpasswd:/etc/nginx/.htpasswd:ro
